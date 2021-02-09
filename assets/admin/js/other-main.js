@@ -1,0 +1,1 @@
+alert("Hello from other main js admin");
