@@ -7,7 +7,7 @@
  * Description: This Plugin can remove add to cart on shop and single page also the price so the shop become a catalog
  * License: GPL2 or later
  * Version: 1.00
- * Text-domain: sam_woocommerce_s2
+ * Text-domain: sam_woocommerce_s3
  *
  */
 
@@ -16,78 +16,93 @@ define("ASSETS_ADMIN_DIR",plugin_dir_url(__FILE__)."/assets/admin");
 define("ASSETS_PUBLIC_DIR",plugin_dir_url(__FILE__)."/assets/public");
 
 
+
+
 //1-Declare Class and initate
-class WooPluginS3{
-	private $version;
-	//2.1
-	function  __construct(){
-		$this->version= time(); //for version num
-		add_action('plugin_loaded', array($this,'load_textdomain')); //2.2
-		add_action('wp_enqueue_scripts',array($this,'load_front_assets'));//2.5
-		add_action('admin_enqueue_scripts',array($this,'load_admin_assets'));
-		add_action('admin_menu',array($this,'sam_woocommerce_s2_add_metabox'));
-	}
+function sam_woocommerce_bootstrap() {
+    load_plugin_textdomain( "sam_woocommerce_s3", false, dirname( __FILE__ ) . "/languages" );
+}
 
-	function load_textdomain(){ //2.3
-		load_plugin_textdomain('sam_woocommerce_s2',false,plugin_dir_url(__FILE__)."/languages");//2.4
-	}
+add_action( 'plugins_loaded', 'sam_woocommerce_bootstrap' );
 
-	function load_front_assets(){ //2.6
-		wp_enqueue_style("sam_woocommerce-s2_woo_main_css",ASSETS_PUBLIC_DIR."/css/main.css",null,$this->version);
-		wp_enqueue_script('sam_woocommerce_s2_woo_plugin_main_js',ASSETS_PUBLIC_DIR."/js/main.js",array('jquery'),$this->version,true);
-	}
+function sam_woocommerce_s3_post_columns( $columns ) {
+    print_r( $columns );
+    unset( $columns['tags'] );
+    unset( $columns['comments'] );
+    /*unset($columns['author']);
+    unset($columns['date']);
+    $columns['author']="Author";
+    $columns['date']="Date";*/
+    $columns['id']        = __( 'Post ID', 'sam_woocommerce_s3' );
+    $columns['thumbnail'] = __( 'Thumbnail', 'sam_woocommerce_s3' );
+    $columns['wordcount'] = __( 'Word Count', 'sam_woocommerce_s3' );
 
-	function  load_admin_assets($screen){
-
-		$css_files=array(
-			'sam_woocommerce_s2_woo_admin_main_css'=>array('path'=>ASSETS_ADMIN_DIR."/css/main.css"),
-			'sam_woocommerce_s2_woo_admin_style_css'=>array('path'=>ASSETS_ADMIN_DIR."/css/style_ok.css"),
-
-		);
-		foreach ($css_files as $handle=>$fileinfo){
-			wp_enqueue_style($handle,$fileinfo['path'],$this->version);
-		}
+    return $columns;
+}
 
 
-		$_screen=get_current_screen();
-		//this one from page setting permalink ->edit.php?post_type=page
-		if('edit.php' == $screen && 'page'==$_screen->post_type){
-			$js_files=array(
-				'sam_woocommerce_s2_woo_admin_plugin_main_js'=>array('path'=>ASSETS_ADMIN_DIR."/js/main.js",'dep'=>array('jquery')),
-				'sam_woocommerce_s2_woo_admin_plugin_other_main_js'=>array('path'=>ASSETS_ADMIN_DIR."/js/other-main.js",'dep'=>array('jquery')),
+add_filter( 'manage_pages_columns', 'sam_woocommerce_s3_post_columns' );
 
-			);
-			foreach ($js_files as $handle=>$fileinfo){
-				 wp_enqueue_script($handle,$fileinfo['path'],$fileinfo['dep'],$this->version, true);
-			}
-		}
-	}
-    //here add a metabox in post that take input of location in post
-	function sam_woocommerce_s2_add_metabox(){
-			add_meta_box(
-				//id
-				'sam_woocommerce_s2_post_location',
-				//give a name and text domain
-				__('Location Info','sam_woocommerce_s2'),
-				//below name is used to add html
-				array($this,'sam_woocommerce_s2_display_location'),
-				//where i want to show its post
-				'post',
-				'side',
-				'high'
-			);
-	}
-	//display from
-	function sam_woocommerce_s2_display_location(){
-		$label= __('Location','sam_woocommerce_s2');
-		$metabox= <<<EOD
-<p>
-<label for="sam_woo_location">{$label} </label>
-<input type="text" name="sam_woo_location" id="sam_omb_location"/>
-</p>
-EOD;
-		echo $metabox;
+function sam_woocommerce_s3_post_column_data( $column, $post_id ) {
+    if ( 'id' == $column ) {
+        echo $post_id;
+    } elseif ( 'thumbnail' == $column ) {
+        $thumbnail = get_the_post_thumbnail( $post_id, array( 100, 100 ) );
+        echo $thumbnail;
+    } elseif ( 'wordcount' == $column ) {
+        /*$_post = get_post($post_id);
+        $content = $_post->post_content;
+        $wordn = str_word_count(strip_tags($content));*/
+        $wordn = get_post_meta( $post_id, 'wordn', true );
+        echo $wordn;
+    }
+}
+
+add_action( 'manage_posts_custom_column', 'sam_woocommerce_s3_post_column_data', 10, 2 );
+
+
+function sam_woocommerce_s3_sortable_column( $columns ) {
+    $columns['wordcount'] = 'wordn';
+
+    return $columns;
+}
+
+add_filter( 'manage_edit-post_sortable_columns', 'sam_woocommerce_s3_sortable_column' );
+
+/*function sam_woocommerce_s3_set_word_count() {
+	$_posts = get_posts( array(
+		'posts_per_page' => - 1,
+		'post_type'      => 'post',
+		'post_status'    => 'any'
+	) );
+
+	foreach ( $_posts as $p ) {
+		$content = $p->post_content;
+		$wordn   = str_word_count( strip_tags( $content ) );
+		update_post_meta( $p->ID, 'wordn', $wordn );
 	}
 }
 
-new WooPluginS3();//2-initate
+add_action( 'init', 'sam_woocommerce_s3_set_word_count' );*/
+
+function sam_woocommerce_s3_sort_column_data( $wpquery ) {
+    if ( ! is_admin() ) {
+        return;
+    }
+
+    $orderby = $wpquery->get( 'orderby' );
+    if ( 'wordn' == $orderby ) {
+        $wpquery->set( 'meta_key', 'wordn' );
+        $wpquery->set( 'orderby', 'meta_value_num' );
+    }
+}
+
+add_action( 'pre_get_posts', 'sam_woocommerce_s3_sort_column_data' );
+
+function sam_woocommerce_s3_update_wordcount_on_post_save($post_id){
+    $p = get_post($post_id);
+    $content = $p->post_content;
+    $wordn   = str_word_count( strip_tags( $content ) );
+    update_post_meta( $p->ID, 'wordn', $wordn );
+}
+add_action('save_post','sam_woocommerce_s3_update_wordcount_on_post_save');
